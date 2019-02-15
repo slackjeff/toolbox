@@ -49,6 +49,11 @@ source "${CONF}"
 # Root?
 [[ "$UID" -ne "0" ]] && { echo "Need root"; exit 1 ;}
 
+# Criando diretórios especial
+[[ ! -d "$DIR_CHANGE" ]] && mkdir "$DIR_CHANGE"
+createconf=${CONF/%controlpanel.conf} # corta, corta.
+[[ ! -d "$createconf" ]] && mkdir "$createconf"
+
 # Se nao ter precisamos criar o arquivo de configuração
 # de cores do dialog.
 if [[ ! -e "$CONF_DIALOG" ]]; then
@@ -214,9 +219,6 @@ for check in 'CHECK_CHANGELOG' ; do
     # Fazendo conversão númerica para alpha
     [[ "${!check}" -eq '0' ]] && eval $check="off" || eval $check="on"
 done
-
-# Criando diretório especial
-[[ ! -d "$DIR_CHANGE" ]] && mkdir "$DIR_CHANGE"
 
 #######################################
 #===================== FUNÇÕES
