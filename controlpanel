@@ -39,11 +39,6 @@ DIR_CHANGE='/var/lib/controlpanel'
 export DIALOGRC="$CONF_DIALOG"
 
 #######################################
-#===================== BIBLIOTECA
-#######################################
-source "${CONF}"
-
-#######################################
 #===================== TESTE
 #######################################
 # Root?
@@ -210,6 +205,11 @@ if [[ ! -e "$CONF" ]]; then
 CHECK_CHANGELOG='1'
 EOF
 fi
+
+#######################################
+#===================== BIBLIOTECA
+#######################################
+source "${CONF}"
 
 # Verificando se variáveis não estão nulas ou se contem alpha
 for check in 'CHECK_CHANGELOG' ; do
