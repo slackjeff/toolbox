@@ -1,0 +1,280 @@
+#!/bin/bash
+#=================HEADER==================================================|
+#CRIAÇÃO 15/02/2019
+#
+#AUTOR
+# Jefferson 'Slackjeff' Rocha
+#
+#DESCRIÇÃO
+# Controlpanel é um software que gerencia vários softwares, usado para
+# habilitar e desabilitar. Criado especialmente para mazonOS
+#
+# TEMPO IDEAL PARA ADICIONAR NO CRON, verificar de 3 em 3 horas.
+# 00 06,09,12,15,18,21,00 * * * /usr/bin/controlpanel -g
+#
+#LICENÇA
+# MIT
+#
+#CHANGELOG
+#========================================================================|
+
+#######################################
+#===================== VARIAVEIS
+#######################################
+VERSION='0.1'
+# USUARIO
+MAINUSER="$(grep "\b1000\b" /etc/passwd | sed 's|:.*$||g')"
+
+# Arquivo de configuração
+CONF='/etc/controlpanel/controlpanel.conf'
+CONF_DIALOG='/etc/controlpanel/controlpanel.dialog'
+
+# Link do changelog da mazonOS
+LINK_CHANGELOG='http://mazonos.com/changelog.txt'
+
+# Diretorios importantes
+DIR_CHANGE='/var/lib/controlpanel'
+
+# Chamando cores do dialog
+export DIALOGRC="$CONF_DIALOG"
+
+#######################################
+#===================== BIBLIOTECA
+#######################################
+source "${CONF}"
+
+#######################################
+#===================== TESTE
+#######################################
+# Root?
+[[ "$UID" -ne "0" ]] && { echo "Need root"; exit 1 ;}
+
+# Se nao ter precisamos criar o arquivo de configuração
+# de cores do dialog.
+if [[ ! -e "$CONF_DIALOG" ]]; then
+    cat > "$CONF_DIALOG" << 'EOF'
+#---------------------------------------------#
+# CONFIGURE CONTROLPANEL
+# STYLE: (foreground,background,highlight?)
+#---------------------------------------------#
+
+# Set aspect-ration.
+aspect = 0
+
+# Set separator (for multiple widgets output).
+separate_widget = ""
+
+# Set tab-length (for textbox tab-conversion).
+tab_len = 0
+
+# Make tab-traversal for checklist, etc., include the list.
+visit_items = OFF
+
+# Shadow dialog boxes? This also turns on color.
+use_shadow = OFF
+
+# Turn color support ON or OFF
+use_colors = ON
+
+# Screen color
+screen_color = (GREEN,BLACK,ON)
+
+# Shadow color
+shadow_color = (BLACK,RED,OFF)
+
+# Dialog box color
+dialog_color = (WHITE,BLACK,ON)
+
+# Dialog box title color
+title_color = (WHITE,BLACK,ON)
+
+# Dialog box border color
+border_color = (RED,BLACK,ON)
+
+# Active button color
+button_active_color = (WHITE,GREEN,ON)
+
+# Inactive button color
+button_inactive_color = dialog_color
+
+# Active button key color
+button_key_active_color = button_active_color
+
+# Inactive button key color
+button_key_inactive_color = (WHITE,BLACK,ON)
+
+# Active button label color
+button_label_active_color = button_active_color
+
+# Inactive button label color
+button_label_inactive_color = (BLACK,BLACK,ON)
+
+# Input box color
+inputbox_color = (WHITE,BLACK,ON)
+
+# Input box border color
+inputbox_border_color = border_color
+
+# Search box color
+searchbox_color = (YELLOW,WHITE,ON)
+
+# Search box title color
+searchbox_title_color = (WHITE,WHITE,ON)
+
+# Search box border color
+searchbox_border_color = (RED,WHITE,ON)
+
+# File position indicator color
+position_indicator_color = button_key_inactive_color
+
+# Menu box color
+menubox_color = dialog_color
+
+# Menu box border color
+menubox_border_color = border_color
+
+# Item color
+item_color = dialog_color
+
+# Selected item color
+item_selected_color = screen_color
+
+# Tag color
+tag_color = title_color
+
+# Selected tag color
+tag_selected_color = screen_color
+
+# Tag key color
+tag_key_color = button_key_inactive_color
+
+# Selected tag key color
+tag_key_selected_color = (GREEN,BLACK,ON)
+
+# Check box color
+check_color = dialog_color
+
+# Selected check box color
+check_selected_color = (WHITE,RED,ON)
+
+# Up arrow color
+uarrow_color = (WHITE,RED,ON)
+
+# Down arrow color
+darrow_color = uarrow_color
+
+# Item help-text color
+itemhelp_color = shadow_color
+
+# Active form text color
+form_active_text_color = inputbox_color
+
+# Form text color
+form_text_color = (CYAN,BLUE,ON)
+
+# Readonly form item color
+form_item_readonly_color = (CYAN,WHITE,ON)
+
+# Dialog box gauge color
+gauge_color = (BLUE,WHITE,ON)
+
+# Dialog box border2 color
+border2_color = dialog_color
+
+# Input box border2 color
+inputbox_border2_color = dialog_color
+
+# Search box border2 color
+searchbox_border2_color = dialog_color
+
+# Menu box border2 color
+menubox_border2_color = dialog_color
+EOF
+fi
+
+# Criando o arquivo de configuração se não ter.
+if [[ ! -e "$CONF" ]]; then
+    cat > "$CONF" << 'EOF'
+######################################################################
+# USED ON controlpanel
+######################################################################
+
+# For enable check changelog on your desktop
+# [0] = OFF [STANDARD]
+# [1] = ON
+CHECK_CHANGELOG='1'
+EOF
+fi
+
+# Verificando se variáveis não estão nulas ou se contem alpha
+for check in 'CHECK_CHANGELOG' ; do
+    if [[ -z "${!check}" ]] || [[ "${!check}" =~ [[:alpha:]] ]]; then
+        eval $check="0"
+    fi
+    # Fazendo conversão númerica para alpha
+    [[ "${!check}" -eq '0' ]] && eval $check="off" || eval $check="on"
+done
+
+# Criando diretório especial
+[[ ! -d "$DIR_CHANGE" ]] && mkdir "$DIR_CHANGE"
+
+#######################################
+#===================== FUNÇÕES
+#######################################
+_CHECK_CHANGELOG() {
+    export DISPLAY=:0
+    local changelogtemp='/tmp/changelog_tmp'
+    local changelogmachine="${DIR_CHANGE}/changelog.txt"
+
+    wget -q "$LINK_CHANGELOG" -O "$changelogtemp" || exit 1
+    if ! diff -q "$changelogmachine" "$changelogtemp" &> /dev/null; then
+        mv "$changelogtemp" "$DIR_CHANGE/changelog.txt" &>/dev/null
+        su "$MAINUSER" -c "/usr/bin/notify-send -i text 'Changelog Upgrade!' 'Check on mazonos.com/changelog'"
+    fi
+}
+
+
+#===================== PRINCIPAL
+# LANÇAR CHAMADA EM LINHA
+while [[ -n "$1" ]]; do
+  case $1 in
+     menu) # Menu Principal para hablitar e desabiliar as funcionalidades
+       shift
+       MSG="
+       [ ] = Desativado
+       [*] = Ativado
+       " # MENSAGEM DO DIALOG
+       RETURN=$(dialog --stdout --separate-output                                                     \
+       --backtitle "ControlPanel $VERSION" --title "Menu"                                             \
+       --checklist "$MSG" 0 0 0                                                                       \
+       "CHECK_CHANGELOG" "Habilita o check-changelog e exibe aviso no desktop" "$CHECK_CHANGELOG"     \
+       )
+       # FIXME Precisa melhorar este bloco que não está muito rápido.
+       # Antes de tudo vamos ver o que NÃO está selecionado.
+       # Para tirar fora do arquivo de configuração.
+       for check in 'CHECK_CHANGELOG'; do
+           if ! echo "$RETURN" | grep -q "$check" &>/dev/null; then
+               sed -i "s|${check}=.*|${check}='0'|" "$CONF"
+               sed -i "/.*controlpanel[[:space:]]\+changelog/d" "/var/spool/fcron/root.orig"
+           fi
+       done
+       # Lançando o que o usuário escolheu.
+       while read LINE; do
+           case $LINE in
+               CHECK_CHANGELOG)
+                   sed -i "s|CHECK_CHANGELOG=.*|CHECK_CHANGELOG='1'|" "$CONF"       
+                   if ! grep -q ".*controlpanel[[:space:]]\+changelog" '/var/spool/fcron/root.orig'; then
+                       echo "00 */2 * * * /usr/bin/controlpanel changelog" >> '/var/spool/fcron/root.orig'
+                   fi
+               ;;
+           esac
+       done <<< "$RETURN"
+     ;; # menu
+
+     # Chamadas diretos em linha.
+     -c|changelog)
+        shift
+         _CHECK_CHANGELOG # função
+     ;;    
+  esac # case principal
+done
